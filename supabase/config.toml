@@ -1,0 +1,4 @@
+# Registration is called before a user has a session.
+# Teacher eligibility is checked inside the function.
+[functions.news-register]
+verify_jwt = false

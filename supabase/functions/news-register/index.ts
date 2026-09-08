@@ -23,6 +23,7 @@ const json = (status: number, body: Record<string, unknown>) =>
   });
 
 type RegistrationBody = {
+  role?: "student" | "teacher";
   email?: string;
   password?: string;
   username?: string;
@@ -72,6 +73,7 @@ Deno.serve(async (request: Request) => {
   try {
     const {
       email,
+      role = "teacher",
       password,
       username,
       family_name,
@@ -92,20 +94,25 @@ Deno.serve(async (request: Request) => {
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedUsername = username.trim().toLowerCase();
 
-    // Dashboard Manager is the sole authority for Media registration access.
-    const { data: allowed, error: allowedError } = await supabaseAdmin.rpc(
-      "is_app_email_allowed",
-      { app_key: MEDIA_APP_KEY, candidate_email: normalizedEmail },
-    );
-    if (allowedError) {
-      return json(500, {
-        error: "Could not verify the registration allowlist.",
-      });
+    if (role !== "student" && role !== "teacher") return json(400, { error: "Invalid registration role." });
+
+    if (role === "teacher") {
+      // Teacher registration requires allowed-user access.
+      const { data: allowed, error: allowedError } = await supabaseAdmin.rpc(
+        "is_app_email_allowed",
+        { app_key: MEDIA_APP_KEY, candidate_email: normalizedEmail },
+      );
+      if (allowedError) {
+        return json(500, {
+          error: "Could not verify the registration allowlist.",
+        });
+      }
+      if (!allowed) {
+        return json(403, {
+          error: "Email not authorized to register. Contact your administrator.",
+        });
     }
-    if (!allowed) {
-      return json(403, {
-        error: "Email not authorized to register. Contact your administrator.",
-      });
+
     }
 
     const [emailProfileResult, usernameProfileResult] = await Promise.all([
@@ -181,6 +188,7 @@ Deno.serve(async (request: Request) => {
       .from("media_profiles")
       .insert({
         id: authUserId,
+        role,
         real_email: normalizedEmail,
         auth_email: authEmail,
         username: normalizedUsername,

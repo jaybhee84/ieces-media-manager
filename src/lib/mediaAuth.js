@@ -25,7 +25,7 @@ export async function validateMediaSession(session) {
 
   const { data: profile, error: profileError } = await supabase
     .from("media_profiles")
-    .select("id, real_email, auth_email, username")
+    .select("id, real_email, auth_email, username, role")
     .eq("id", session.user.id)
     .maybeSingle();
 
@@ -35,6 +35,8 @@ export async function validateMediaSession(session) {
       error: "This account is not registered for Media Manager.",
     };
   }
+
+  if (profile.role === "student") return { valid: true, profile };
 
   const { data: allowed, error: allowError } = await supabase.rpc(
     "is_app_email_allowed",

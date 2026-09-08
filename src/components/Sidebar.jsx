@@ -12,6 +12,7 @@ const CATEGORIES = [
 
 export default function Sidebar({
   user = {},
+  role,
   onSignOut,
   articleCount = 0,
   selectedCategory,
@@ -106,7 +107,7 @@ export default function Sidebar({
             <p className="text-xs font-bold text-slate-700 truncate">
               {user.email}
             </p>
-            <p className="text-[10px] text-slate-400">Administrator</p>
+            <p className="text-[10px] text-slate-400">{role === "teacher" ? "Teacher" : "Student"}</p>
           </div>
         </div>
         <button

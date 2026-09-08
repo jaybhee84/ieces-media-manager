@@ -1,6 +1,6 @@
 {
   "name": "ieces-media-manager",
-  "version": "3.0.7",
+  "version": "3.0.8",
   "description": "IECES Media Manager — upload and manage school media for the website",
   "main": "src/main.js",
   "scripts": {

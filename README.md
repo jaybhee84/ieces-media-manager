@@ -107,3 +107,17 @@ src/
 page.tsx            ← Drop-in Next.js replacement (reads from Supabase)
 supabase-setup.sql  ← Run once in Supabase SQL Editor
 ```
+
+## Student registration and teacher review
+
+Apply `supabase/migrations/20260909000100_student_teacher_review.sql` after the existing Media auth migration, then deploy the updated registration function:
+
+```bash
+supabase functions deploy news-register --no-verify-jwt
+```
+
+Deploy the rebuilt app after the database and function changes. Student registration is open; teacher registration and ongoing access require the `news` allowed-users list. Existing Media accounts remain teachers and existing articles remain published. Roles and membership emails cannot be changed by clients.
+
+Students see their own submissions and may edit/delete pending articles. Teachers see the pending review queue, edit the full article, and select **Approve and publish this article** when saving. Published student articles can only be changed by teachers. Public article reads only return published rows. Photo storage remains public by URL, as before; article approval does not make uploaded photo URLs private.
+
+Verify with a student email outside the allowed list and a teacher email inside it: register both, submit a student article, confirm it is absent from anonymous article reads, approve it as the teacher, and confirm it becomes public. Also check that a student cannot update their role, approve articles, edit another student's work, or modify an approved article through the API.

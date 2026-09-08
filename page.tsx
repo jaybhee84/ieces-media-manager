@@ -30,6 +30,7 @@ async function getArticles(): Promise<NewsArticle[]> {
   const { data, error } = await supabase
     .from('news_articles')
     .select('*')
+    .eq('status', 'published')
     .order('created_at', { ascending: false })
 
   if (error) {

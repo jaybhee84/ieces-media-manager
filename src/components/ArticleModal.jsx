@@ -4,10 +4,13 @@ import mammoth from "mammoth";
 
 export default function ArticleModal({
   article,
+  isTeacher,
+  userId,
   selectedCategory,
   onClose,
   onSaved,
 }) {
+  const [approve, setApprove] = useState(false);
   const [author, setAuthor] = useState(article?.author || "");
   const [authorSuggestions, setAuthorSuggestions] = useState([]);
   const [title, setTitle] = useState(article?.title || "");
@@ -159,7 +162,7 @@ export default function ArticleModal({
     for (const file of files) {
       const fileExt = file.name.split(".").pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `${dateFolderPath}/${fileName}`;
+      const filePath = `${userId}/${dateFolderPath}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from("news-photos")
@@ -192,6 +195,8 @@ export default function ArticleModal({
     setSaving(true);
 
     const payload = {
+      status: isTeacher ? (approve ? "published" : article?.status || "published") : "pending",
+      ...(!article?.id ? { submitted_by: userId } : {}),
       author: author.trim(),
       title: title.trim(),
       description,
@@ -207,7 +212,9 @@ export default function ArticleModal({
         const { error } = await supabase
           .from("news_articles")
           .update(payload)
-          .eq("id", article.id);
+          .eq("id", article.id)
+          .select("id")
+          .single();
         if (error) throw error;
       } else {
         const { error } = await supabase
@@ -443,6 +450,13 @@ export default function ArticleModal({
             )}
           </div>
 
+          {isTeacher && article?.status === "pending" && (
+            <label className="flex items-center gap-2 text-sm font-bold text-rose-900">
+              <input type="checkbox" checked={approve} onChange={e => setApprove(e.target.checked)} />
+              Approve and publish this article
+            </label>
+          )}
+          {!isTeacher && <p className="text-xs text-slate-500">Your article will be sent to teachers for review before it appears on the website.</p>}
           {/* ACTIONS */}
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
             <button
@@ -461,8 +475,8 @@ export default function ArticleModal({
               }}
             >
               {saving
-                ? "Publishing…"
-                : article
+                ? "Saving..."
+                : !isTeacher ? "Submit for Review" : approve ? "Approve & Publish" : article
                   ? "Save Changes"
                   : "Publish Article"}
             </button>

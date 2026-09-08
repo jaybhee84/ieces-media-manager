@@ -146,7 +146,7 @@ export default function App() {
   return (
     <>
       <UpdateBanner />
-      {session ? <DashboardPage session={session} /> : <LoginPage />}
+      {session ? <DashboardPage session={session} profile={mediaProfile} /> : <LoginPage />}
     </>
   );
 }

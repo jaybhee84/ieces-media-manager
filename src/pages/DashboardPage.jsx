@@ -5,7 +5,9 @@ import ArticleModal from "../components/ArticleModal";
 import Sidebar from "../components/Sidebar";
 import DeleteConfirmModal from "../components/DeleteConfirmModal";
 
-export default function DashboardPage({ session }) {
+export default function DashboardPage({ session, profile }) {
+  const isTeacher = profile?.role === "teacher";
+  const [statusFilter, setStatusFilter] = useState("all");
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -22,13 +24,13 @@ export default function DashboardPage({ session }) {
 
   const fetchArticles = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("news_articles")
-      .select("*")
-      .order("created_at", { ascending: false });
+    let query = supabase.from("news_articles").select("*").order("created_at", { ascending: false });
+    if (!isTeacher) query = query.eq("submitted_by", session.user.id);
+    const { data, error } = await query;
     if (!error) setArticles(data || []);
+    else showToast("Could not load articles. Please try again.", "error");
     setLoading(false);
-  }, []);
+  }, [isTeacher, session.user.id]);
 
   useEffect(() => {
     fetchArticles();
@@ -95,14 +97,15 @@ export default function DashboardPage({ session }) {
       a.category?.toLowerCase() === selectedCategory.toLowerCase() ||
       a.tag?.toLowerCase() === selectedCategory.toLowerCase();
 
-    return matchesSearch && matchesCategory;
+    return matchesSearch && matchesCategory && (statusFilter === "all" || a.status === statusFilter);
   });
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-100">
       {/* Sidebar Navigation */}
       <Sidebar
-        user={session.user}
+        user={{ ...session.user, email: profile?.real_email }}
+        role={profile?.role}
         onSignOut={handleSignOut}
         articleCount={articles.length}
         selectedCategory={selectedCategory}
@@ -123,7 +126,7 @@ export default function DashboardPage({ session }) {
                 : selectedCategory}
             </h1>
             <p className="text-xs text-slate-400">
-              Manage articles that appear on the IECES school website
+              {isTeacher ? "Review student submissions and manage published articles" : "My articles ? submissions require teacher approval"}
             </p>
           </div>
 
@@ -174,6 +177,12 @@ export default function DashboardPage({ session }) {
           </button>
         </header>
 
+        <div className="px-6 py-3 flex gap-3 bg-white border-b border-slate-200">
+          {[ ["all", "All"], ["pending", `Pending review (${articles.filter(a => a.status === "pending").length})`], ["published", "Published"] ].map(([value, label]) => (
+            <button key={value} onClick={() => setStatusFilter(value)} className={`px-3 py-2 rounded-lg text-xs font-bold ${statusFilter === value ? "bg-rose-100 text-rose-900" : "text-slate-500"}`}>{label}</button>
+          ))}
+          <button onClick={fetchArticles} className="ml-auto text-xs text-rose-900">Refresh</button>
+        </div>
         {/* Article Grid */}
         <div className="flex-1 overflow-y-auto p-6">
           {loading ? (
@@ -200,7 +209,9 @@ export default function DashboardPage({ session }) {
                   key={article.id}
                   article={article}
                   onEdit={handleEdit}
-                  onDelete={handleDeleteConfirm}
+                  onDelete={isTeacher || article.status === "pending" ? handleDeleteConfirm : null}
+                  canEdit={isTeacher || article.status === "pending"}
+                  isTeacher={isTeacher}
                 />
               ))}
             </div>
@@ -212,13 +223,15 @@ export default function DashboardPage({ session }) {
       {showModal && (
         <ArticleModal
           article={editingArticle}
+          isTeacher={isTeacher}
+          userId={session.user.id}
           selectedCategory={selectedCategory}
           onClose={() => setShowModal(false)}
           onSaved={() => {
             setShowModal(false);
             fetchArticles();
             showToast(
-              editingArticle ? "Article updated!" : "Article published!",
+              isTeacher ? "Article saved!" : "Article submitted for teacher review!",
             );
           }}
         />

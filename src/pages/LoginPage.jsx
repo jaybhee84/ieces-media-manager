@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { MEDIA_APP_KEY, supabase } from "../lib/supabase";
+import { registrationErrorMessage } from "../lib/registrationError.mjs";
 import { validateMediaSession } from "../lib/mediaAuth";
 import iecesLogo from "../image/ieceslogo.png";
 import mediaManagerLogo from "../image/iecesmediamanager.png";
@@ -9,7 +10,7 @@ import loginBg3 from "../image/bg3.png.png";
 import packageInfo from "../../package.json";
 
 export default function LoginPage() {
-  const [view, setView] = useState("login"); // 'login' | 'register'
+  const [view, setView] = useState("login"); // 'login' | 'student' | 'teacher'
 
   return (
     <div className="h-screen flex overflow-hidden">
@@ -86,9 +87,9 @@ export default function LoginPage() {
         </div>
 
         {view === "login" ? (
-          <LoginForm onGoRegister={() => setView("register")} />
+          <LoginForm onGoRegister={(role) => setView(role)} />
         ) : (
-          <RegisterForm onGoLogin={() => setView("login")} />
+          <RegisterForm key={view} role={view} onGoLogin={() => setView("login")} />
         )}
         </div>
       </div>
@@ -138,17 +139,6 @@ function LoginForm({ onGoRegister }) {
         return;
       }
 
-      const { data: allowed, error: allowError } = await supabase.rpc(
-        "is_app_email_allowed",
-        {
-          app_key: MEDIA_APP_KEY,
-          candidate_email: profile.real_email,
-        },
-      );
-      if (allowError || !allowed) {
-        setError("Your email is not authorized to access Media Manager.");
-        return;
-      }
 
       const { data: authData, error: authError } =
         await supabase.auth.signInWithPassword({
@@ -228,23 +218,24 @@ function LoginForm({ onGoRegister }) {
         <p className="text-slate-500 text-xs">
           Don't have an account?{" "}
           <button
-            onClick={onGoRegister}
+            onClick={() => onGoRegister("student")}
             className="font-bold text-rose-900 hover:underline"
           >
-            Register here
+            Register as Student
           </button>
         </p>
       </div>
 
+      <button onClick={() => onGoRegister("teacher")} className="mt-3 w-full text-center text-xs font-bold text-rose-900 hover:underline">Register as Teacher</button>
       <p className="text-slate-400 text-xs text-center mt-4">
-        Contact your school ICT coordinator to get access.
+        Student registration is open to everyone.
       </p>
     </div>
   );
 }
 
 // ── Register Form ─────────────────────────────────────────────────────────────
-function RegisterForm({ onGoLogin }) {
+function RegisterForm({ onGoLogin, role }) {
   const [form, setForm] = useState({
     familyName: "",
     firstName: "",
@@ -275,22 +266,26 @@ function RegisterForm({ onGoLogin }) {
     }
 
     setLoading(true);
+    try {
 
-    // 1. Check the whitelist managed by IECES Dashboard Manager
-    const { data: allowed, error: allowErr } = await supabase.rpc(
-      "is_app_email_allowed",
-      {
-        app_key: MEDIA_APP_KEY,
-        candidate_email: form.email.trim().toLowerCase(),
-      },
-    );
-
-    if (allowErr || !allowed) {
-      setError(
-        "Your email is not authorized to register. Contact your school administrator.",
+    if (role === "teacher") {
+      // Teachers require allowed-user access.
+      const { data: allowed, error: allowErr } = await supabase.rpc(
+        "is_app_email_allowed",
+        {
+          app_key: MEDIA_APP_KEY,
+          candidate_email: form.email.trim().toLowerCase(),
+        },
       );
-      setLoading(false);
-      return;
+
+      if (allowErr || !allowed) {
+        setError(
+          "Your email is not authorized to register. Contact your school administrator.",
+        );
+        setLoading(false);
+        return;
+    }
+
     }
 
     const email = form.email.trim().toLowerCase();
@@ -302,23 +297,27 @@ function RegisterForm({ onGoLogin }) {
       middle_initial: form.middleInitial.trim() || null,
     };
 
-    // The server repeats the allowlist check and creates a deterministic,
+    // The server enforces teacher eligibility and creates a deterministic,
     // Media-only Auth identity plus its app-specific profile.
     const { data: functionData, error: functionError } =
       await supabase.functions.invoke("news-register", {
-        body: { password: form.password, ...profile },
+        body: { password: form.password, role, ...profile },
       });
 
     if (functionError || functionData?.error) {
       setError(
-        functionData?.error || functionError?.message || "Registration failed.",
+        await registrationErrorMessage(functionError, functionData),
       );
       setLoading(false);
       return;
     }
 
     setSuccess(true);
-    setLoading(false);
+    } catch (registrationError) {
+      setError(await registrationErrorMessage(registrationError));
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (success) {
@@ -348,10 +347,10 @@ function RegisterForm({ onGoLogin }) {
   return (
     <div className="login-content-card w-full max-w-sm">
       <h2 className="text-2xl font-black text-slate-900 mb-1">
-        Create Account
+        {role === "teacher" ? "Teacher Registration" : "Student Registration"}
       </h2>
       <p className="text-slate-500 text-sm mb-6">
-        Your email must be pre-approved by the administrator.
+        {role === "teacher" ? "Your email must be in the allowed users list." : "Anyone can register. Your articles will be sent to teachers for review and approval."}
       </p>
 
       <form onSubmit={handleRegister} className="space-y-3">

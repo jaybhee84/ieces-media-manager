@@ -1,4 +1,4 @@
-export default function ArticleCard({ article, onEdit, onDelete }) {
+export default function ArticleCard({ article, onEdit, onDelete, canEdit = true, isTeacher }) {
   const photoCount = article.photos?.length || 0;
   const firstPhoto = photoCount > 0 ? article.photos[0] : null;
 
@@ -41,6 +41,8 @@ export default function ArticleCard({ article, onEdit, onDelete }) {
           </span>
         </div>
 
+        <p className="text-xs font-bold text-rose-900 mb-2">{article.status === "pending" ? "Pending teacher review" : "Published"}</p>
+        <p className="text-xs text-slate-500 mb-2">By {article.author}</p>
         <h3 className="text-sm font-black text-slate-900 leading-snug mb-2 line-clamp-2">
           {article.title}
         </h3>
@@ -52,17 +54,18 @@ export default function ArticleCard({ article, onEdit, onDelete }) {
       {/* Action Footer */}
       <div className="px-5 pb-5 pt-2 flex items-center gap-2 border-t border-slate-50">
         <button
+          disabled={!canEdit}
           onClick={() => onEdit(article)}
           className="flex-1 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-rose-200 hover:text-rose-900 transition"
         >
-          ✏️ Edit
+          {!canEdit ? "Approved" : isTeacher && article.status === "pending" ? "Review & Edit" : "Edit"}
         </button>
-        <button
+        {onDelete && <button
           onClick={() => onDelete(article)}
           className="py-2 px-3 rounded-xl text-xs font-bold border border-red-100 text-red-500 hover:bg-red-50 transition"
         >
           🗑️ Delete
-        </button>
+        </button>}
       </div>
     </div>
   );
