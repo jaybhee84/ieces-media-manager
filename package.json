@@ -46,7 +46,7 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "jaybhee84",
+      "owner": "buzzjay84",
       "repo": "ieces-news-manager",
       "releaseType": "release"
     }
